@@ -21,7 +21,7 @@ export default {
         // API path with query string
         const pathWithQuery = `/booking.json?from=${from}&to=${to}`;
 
-        // String to sign must include query string
+        // String to sign (must include query string)
         const method = "GET";
         const stringToSign = `${method}\n${pathWithQuery}\n${now}\n${accessKey}`;
 
@@ -48,6 +48,7 @@ export default {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            "Accept": "application/json",   // ✅ Force JSON
             "X-Bokun-Date": now,
             "X-Bokun-AccessKey": accessKey,
             "X-Bokun-Signature": signature,
@@ -71,6 +72,7 @@ export default {
         );
       }
 
+      // Default fallback
       return new Response(
         JSON.stringify({ message: "Worker running. Try /bookings" }),
         { headers: { "Content-Type": "application/json" } }
@@ -81,5 +83,8 @@ export default {
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
+  },
+};
+
   },
 };
