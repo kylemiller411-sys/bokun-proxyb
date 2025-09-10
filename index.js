@@ -3,20 +3,19 @@ export default {
     try {
       const url = new URL(request.url);
 
-      // Handle /bookings endpoint
       if (url.pathname === "/bookings") {
         const accessKey = "d2b2b9a143b54434a4c85196d4317467";
         const secretKey = "a749a84bbfe2454aa5424e84b52e070c";
 
-        // Generate Bokun Date header
+        // Date header
         const now = new Date().toUTCString();
-        
-        // Bokun requires signing of: METHOD + PATH + DATE + AccessKey
+
+        // String to sign
         const method = "GET";
-        const path = "/bookings/v1/bookings"; // Bokun bookings API endpoint
+        const path = "/bookings/v1/bookings";
         const stringToSign = `${method}\n${path}\n${now}\n${accessKey}`;
 
-        // Generate HMAC-SHA1 signature
+        // HMAC-SHA1 signature
         const encoder = new TextEncoder();
         const key = await crypto.subtle.importKey(
           "raw",
@@ -33,7 +32,7 @@ export default {
         const signatureArray = Array.from(new Uint8Array(signatureBuffer));
         const signature = signatureArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-        // Call Bokun API with signed headers
+        // Fetch from Bokun
         const response = await fetch("https://api.bokun.io/bookings/v1/bookings", {
           method: "GET",
           headers: {
@@ -44,24 +43,27 @@ export default {
           },
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          return new Response(
-            JSON.stringify({ error: "Bokun API error", status: response.status, details: errorText }),
-            { status: response.status, headers: { "Content-Type": "application/json" } }
-          );
-        }
+        const text = await response.text();
 
-        const data = await response.json();
-        return new Response(JSON.stringify(data, null, 2), {
-          headers: { "Content-Type": "application/json" },
-        });
+        // ✅ Return raw Bokun response (debug mode)
+        return new Response(
+          JSON.stringify({
+            status: response.status,
+            headers: Object.fromEntries(response.headers),
+            body: text,
+            debug: {
+              stringToSign,
+              signature,
+              date: now,
+            },
+          }, null, 2),
+          { headers: { "Content-Type": "application/json" } }
+        );
       }
 
-      return new Response(
-        JSON.stringify({ message: "Worker running. Try /bookings" }),
-        { headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ message: "Worker running. Try /bookings" }), {
+        headers: { "Content-Type": "application/json" },
+      });
     } catch (err) {
       return new Response(
         JSON.stringify({ error: "Worker crashed", details: err.message }),
