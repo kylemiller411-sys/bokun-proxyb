@@ -10,9 +10,9 @@ export default {
         // Date header
         const now = new Date().toUTCString();
 
-        // String to sign
+        // String to sign (method + path + date + key)
         const method = "GET";
-        const path = "/bookings/v1/bookings";
+        const path = "/booking.json"; // ✅ Correct Bokun endpoint
         const stringToSign = `${method}\n${path}\n${now}\n${accessKey}`;
 
         // HMAC-SHA1 signature
@@ -32,8 +32,8 @@ export default {
         const signatureArray = Array.from(new Uint8Array(signatureBuffer));
         const signature = signatureArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-        // Fetch from Bokun
-        const response = await fetch("https://api.bokun.io/bookings/v1/bookings", {
+        // Fetch from Bokun API
+        const response = await fetch("https://api.bokun.io/booking.json", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -45,25 +45,25 @@ export default {
 
         const text = await response.text();
 
-        // ✅ Return raw Bokun response (debug mode)
         return new Response(
-          JSON.stringify({
-            status: response.status,
-            headers: Object.fromEntries(response.headers),
-            body: text,
-            debug: {
-              stringToSign,
-              signature,
-              date: now,
+          JSON.stringify(
+            {
+              status: response.status,
+              headers: Object.fromEntries(response.headers),
+              body: text,
+              debug: { stringToSign, signature, date: now },
             },
-          }, null, 2),
+            null,
+            2
+          ),
           { headers: { "Content-Type": "application/json" } }
         );
       }
 
-      return new Response(JSON.stringify({ message: "Worker running. Try /bookings" }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ message: "Worker running. Try /bookings" }),
+        { headers: { "Content-Type": "application/json" } }
+      );
     } catch (err) {
       return new Response(
         JSON.stringify({ error: "Worker crashed", details: err.message }),
