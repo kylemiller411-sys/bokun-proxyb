@@ -3,88 +3,56 @@ export default {
     try {
       const url = new URL(request.url);
 
+      // Only allow our defined endpoints
       if (url.pathname === "/bookings") {
-        const accessKey = "d2b2b9a143b54434a4c85196d4317467";
-        const secretKey = "a749a84bbfe2454aa5424e84b52e070c";
+        // Example: fetch bookings from Bókun API
+        const from = url.searchParams.get("from") || "2025-09-01";
+        const to = url.searchParams.get("to") || "2025-09-10";
 
-        // Date header
-        const now = new Date().toUTCString();
+        const path = `/booking.json?from=${from}&to=${to}`;
+        const apiHost = "https://api.bokun.io"; // ✅ Use the official API domain
+        const apiUrl = apiHost + path;
 
-        // Last 7 days
-        const today = new Date();
-        const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getDate() - 7);
-
-        const from = sevenDaysAgo.toISOString().split("T")[0];
-        const to = today.toISOString().split("T")[0];
-
-        // API path with query string
-        const pathWithQuery = `/booking.json?from=${from}&to=${to}`;
-
-        // String to sign (must include query string)
-        const method = "GET";
-        const stringToSign = `${method}\n${pathWithQuery}\n${now}\n${accessKey}`;
-
-        // HMAC-SHA1 signature
+        // Required headers
+        const date = new Date().toUTCString();
+        const stringToSign = `GET\n${path}\n${date}\n${env.BOKUN_ACCESS_KEY}`;
         const encoder = new TextEncoder();
-        const key = await crypto.subtle.importKey(
-          "raw",
-          encoder.encode(secretKey),
-          { name: "HMAC", hash: "SHA-1" },
-          false,
-          ["sign"]
-        );
+        const keyData = encoder.encode(env.BOKUN_SECRET_KEY);
+        const signData = encoder.encode(stringToSign);
         const signatureBuffer = await crypto.subtle.sign(
           "HMAC",
-          key,
-          encoder.encode(stringToSign)
+          await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]),
+          signData
         );
-        const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-        const signature = signatureArray.map(b => b.toString(16).padStart(2, "0")).join("");
+        const signature = Array.from(new Uint8Array(signatureBuffer))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
 
-        // Fetch from Bokun
-        const apiUrl = `https://api.bokun.io${pathWithQuery}`;
-        const response = await fetch(apiUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",   // ✅ Force JSON
-            "X-Bokun-Date": now,
-            "X-Bokun-AccessKey": accessKey,
-            "X-Bokun-Signature": signature,
-          },
+        const headers = {
+          "Date": date,
+          "Bokun-AccessKey": env.BOKUN_ACCESS_KEY,
+          "Bokun-Signature": signature,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        };
+
+        const response = await fetch(apiUrl, { method: "GET", headers });
+
+        return new Response(await response.text(), {
+          status: response.status,
+          headers: { "Content-Type": "application/json" },
         });
-
-        const text = await response.text();
-
-        return new Response(
-          JSON.stringify(
-            {
-              status: response.status,
-              headers: Object.fromEntries(response.headers),
-              body: text,
-              debug: { stringToSign, signature, date: now, pathWithQuery },
-            },
-            null,
-            2
-          ),
-          { headers: { "Content-Type": "application/json" } }
-        );
       }
 
-      // Default fallback
       return new Response(
-        JSON.stringify({ message: "Worker running. Try /bookings" }),
-        { headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ message: "Worker is running. Try /bookings?from=YYYY-MM-DD&to=YYYY-MM-DD" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
       );
     } catch (err) {
-      return new Response(
-        JSON.stringify({ error: "Worker crashed", details: err.message }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Worker crashed", details: err.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
-  },
-};
-
   },
 };
