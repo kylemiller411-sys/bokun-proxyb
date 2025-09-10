@@ -4,21 +4,23 @@ export default {
       const url = new URL(request.url);
       let path = null;
 
-      // Map routes
+      // Map routes to Bokun API
       if (url.pathname === "/bookings") {
-        path = "/booking.json"; // bookings endpoint
+        path = "/booking.json"; // list bookings
       } else if (url.pathname === "/products") {
-        path = "/activity.json"; // products endpoint
+        path = "/activity.json"; // list products
+      } else if (url.pathname === "/availability") {
+        path = "/availability.json"; // check availability
       } else {
         return new Response(
           JSON.stringify({
-            message: "Worker running. Try /bookings or /products"
+            message: "Worker running. Try /bookings, /products, or /availability"
           }),
           { headers: { "Content-Type": "application/json" } }
         );
       }
 
-      // Add from/to params (default to last 7 days for bookings)
+      // Default date range (for bookings & availability)
       const today = new Date();
       const sevenDaysAgo = new Date(today);
       sevenDaysAgo.setDate(today.getDate() - 7);
@@ -29,18 +31,19 @@ export default {
       const to =
         url.searchParams.get("to") || today.toISOString().split("T")[0];
 
-      // Build Bokun URL
+      // Build Bokun URL (availability also expects from/to)
       const bokunUrl =
-        path === "/booking.json"
+        path === "/booking.json" || path === "/availability.json"
           ? `https://api.bokun.io${path}?from=${from}&to=${to}`
           : `https://api.bokun.io${path}`;
 
-      // Sign request
+      // Signing
       const date = new Date().toUTCString();
       const pathForSigning =
-        path === "/booking.json"
+        path === "/booking.json" || path === "/availability.json"
           ? `${path}?from=${from}&to=${to}`
           : path;
+
       const stringToSign = `${request.method}\n${pathForSigning}\n${date}\n${env.BOKUN_ACCESS_KEY}`;
 
       const encoder = new TextEncoder();
@@ -62,7 +65,7 @@ export default {
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
 
-      // Call Bokun
+      // Call Bokun API
       const response = await fetch(bokunUrl, {
         method: "GET",
         headers: {
