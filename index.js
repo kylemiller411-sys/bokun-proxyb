@@ -7,15 +7,25 @@ export default {
         const accessKey = "d2b2b9a143b54434a4c85196d4317467";
         const secretKey = "a749a84bbfe2454aa5424e84b52e070c";
 
-        // Date header
+        // 🔹 Date header for Bokun
         const now = new Date().toUTCString();
 
-        // String to sign (method + path + date + key)
+        // 🔹 Compute last 7 days range
+        const today = new Date();
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(today.getDate() - 7);
+
+        const from = sevenDaysAgo.toISOString().split("T")[0];
+        const to = today.toISOString().split("T")[0];
+
+        // 🔹 API path with query params
+        const path = `/booking.json?from=${from}&to=${to}`;
+
+        // 🔹 String to sign
         const method = "GET";
-        const path = "/booking.json"; // ✅ Correct Bokun endpoint
         const stringToSign = `${method}\n${path}\n${now}\n${accessKey}`;
 
-        // HMAC-SHA1 signature
+        // 🔹 HMAC-SHA1 signature
         const encoder = new TextEncoder();
         const key = await crypto.subtle.importKey(
           "raw",
@@ -32,8 +42,9 @@ export default {
         const signatureArray = Array.from(new Uint8Array(signatureBuffer));
         const signature = signatureArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-        // Fetch from Bokun API
-        const response = await fetch("https://api.bokun.io/booking.json", {
+        // 🔹 Fetch from Bokun
+        const apiUrl = `https://api.bokun.io${path}`;
+        const response = await fetch(apiUrl, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -51,7 +62,7 @@ export default {
               status: response.status,
               headers: Object.fromEntries(response.headers),
               body: text,
-              debug: { stringToSign, signature, date: now },
+              debug: { stringToSign, signature, date: now, path },
             },
             null,
             2
@@ -60,6 +71,7 @@ export default {
         );
       }
 
+      // Default fallback
       return new Response(
         JSON.stringify({ message: "Worker running. Try /bookings" }),
         { headers: { "Content-Type": "application/json" } }
@@ -72,3 +84,4 @@ export default {
     }
   },
 };
+
