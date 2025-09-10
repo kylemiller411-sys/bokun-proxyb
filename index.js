@@ -3,21 +3,17 @@ export default {
     try {
       const url = new URL(request.url);
 
-      // Map simple routes to Bokun API
-      let path = url.pathname;
+      // Default to bookings endpoint
+      let path = "/booking.json";
 
-      if (path === "/bookings") {
-        path = "/bookings/v1/bookings"; // correct Bokun API endpoint
-      }
-
-      // Default params (just so it always works)
+      // Add from/to params for testing
       const from = url.searchParams.get("from") || "2025-09-01";
       const to = url.searchParams.get("to") || "2025-09-10";
 
-      // Full Bokun API URL
+      // Construct Bokun API URL
       const bokunUrl = `https://api.bokun.io${path}?from=${from}&to=${to}`;
 
-      // Prepare request signing
+      // Required request signing
       const date = new Date().toUTCString();
       const stringToSign = `${request.method}\n${path}?from=${from}&to=${to}\n${date}\n${env.BOKUN_ACCESS_KEY}`;
 
@@ -40,7 +36,7 @@ export default {
         .map(b => b.toString(16).padStart(2, "0"))
         .join("");
 
-      // Make request to Bokun API
+      // Call Bokun API
       const response = await fetch(bokunUrl, {
         method: "GET",
         headers: {
