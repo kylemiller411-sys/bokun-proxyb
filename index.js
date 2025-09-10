@@ -6,11 +6,11 @@ export default {
 
       // Map routes to Bokun API
       if (url.pathname === "/bookings") {
-        path = "/booking.json"; // list bookings
+        path = "/booking.json"; // bookings
       } else if (url.pathname === "/products") {
-        path = "/activity.json"; // list products
+        path = "/activity.json"; // products
       } else if (url.pathname === "/availability") {
-        path = "/availability.json"; // check availability
+        path = "/availability.json"; // availability
       } else {
         return new Response(
           JSON.stringify({
@@ -20,7 +20,7 @@ export default {
         );
       }
 
-      // Default date range (for bookings & availability)
+      // Default date range
       const today = new Date();
       const sevenDaysAgo = new Date(today);
       sevenDaysAgo.setDate(today.getDate() - 7);
@@ -31,19 +31,30 @@ export default {
       const to =
         url.searchParams.get("to") || today.toISOString().split("T")[0];
 
-      // Build Bokun URL (availability also expects from/to)
-      const bokunUrl =
-        path === "/booking.json" || path === "/availability.json"
-          ? `https://api.bokun.io${path}?from=${from}&to=${to}`
-          : `https://api.bokun.io${path}`;
+      // For availability, allow productId param
+      const productId = url.searchParams.get("productId");
+
+      // Build API URL
+      let bokunUrl = "";
+      if (path === "/booking.json") {
+        bokunUrl = `https://api.bokun.io${path}?from=${from}&to=${to}`;
+      } else if (path === "/availability.json") {
+        if (!productId) {
+          return new Response(
+            JSON.stringify({
+              error: "Missing productId. Use /availability?productId=12345&from=YYYY-MM-DD&to=YYYY-MM-DD"
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        bokunUrl = `https://api.bokun.io${path}?productId=${productId}&from=${from}&to=${to}`;
+      } else {
+        bokunUrl = `https://api.bokun.io${path}`;
+      }
 
       // Signing
       const date = new Date().toUTCString();
-      const pathForSigning =
-        path === "/booking.json" || path === "/availability.json"
-          ? `${path}?from=${from}&to=${to}`
-          : path;
-
+      const pathForSigning = bokunUrl.replace("https://api.bokun.io", "");
       const stringToSign = `${request.method}\n${pathForSigning}\n${date}\n${env.BOKUN_ACCESS_KEY}`;
 
       const encoder = new TextEncoder();
