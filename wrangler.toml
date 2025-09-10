@@ -1,0 +1,6 @@
+name = "bokun-proxyb"
+main = "index.js"
+compatibility_date = "2025-09-10"
+
+[env.production]
+routes = ["bokun-proxy.whereiskylemiller.com/*"]
